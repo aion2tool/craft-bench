@@ -39,17 +39,19 @@ let bad = 0; const check = (n, ok, v) => { if (!ok) bad++; console.log((ok ? 'ok
   check('import our format', await ev(`profilesIn({app:'craft-bench',v:1,profiles:[{name:'X',stock:{a:1}}]}).length===1`), 0);
   check('import old single backup', await ev(`profilesIn({stock:{a:1},prices:{}}).length===1`), 0);
   check('reject junk', await ev(`(()=>{try{profilesIn({foo:1});return false}catch(e){return true}})()`), 0);
-  // inline tracking + price entry
-  await ev(`PROF.cur=0; S=PROF.list[0]; S.sel=null; upd(); 1`);
-  const benchInput = await ev(`(()=>{const i=document.querySelector('.bench input[data-stock]'); if(!i) return null; i.value='3'; i.dispatchEvent(new Event('change',{bubbles:true})); return i.dataset.stock})()`);
-  check('bench Have box updates inventory', benchInput && await ev(`S.stock[${JSON.stringify(benchInput || '')}]===3`), benchInput);
-  const priceKey = await ev(`(()=>{const i=document.querySelector('.bench input[data-price]'); if(!i) return null; i.value='12345'; i.dispatchEvent(new Event('change',{bubbles:true})); return i.dataset.price})()`);
-  check('bench Price box saves price', priceKey && await ev(`S.prices[${JSON.stringify(priceKey || '')}]===12345`), priceKey);
-  await ev(`document.querySelector('#pricesB').click(); 1`);
-  check('prices window lists materials', await ev(`document.querySelector('#pricesDlg').open && document.querySelectorAll('#priceList input').length>3`), await ev(`document.querySelectorAll('#priceList input').length`));
-  await ev(`document.querySelector('#pricesDlg').close(); 1`);
-  check('materials table shows crafted pieces', await ev(`document.querySelector('#allMats').textContent.includes('Balaur Horn')`), 0);
-  check('no simulator left', await ev(`!document.querySelector('#simB') && !document.querySelector('[data-try]')`), 0);
+  // step boxes + total materials
+  await ev(`PROF.cur=0; S=PROF.list[0]; S.fac='Elyos'; S.target=null; S.view='steps'; S.showAll=false; S.stock={'Splendent White Dragon Lord Longsword':1}; upd(); 1`);
+  check('boxes start at the next step (2 left)', await ev(`document.querySelectorAll('#view .box').length===2 && document.querySelectorAll('#view .arrow').length===1`), await ev(`document.querySelectorAll('#view .box').length`));
+  check('next box is Wise, marked 100%', await ev(`(()=>{const b=document.querySelector('#view .box.next');return !!b && b.textContent.includes('Wise Dragon Lord Longsword') && b.textContent.includes('100%')})()`), 0);
+  await ev(`document.querySelector('#showAll').checked=true; document.querySelector('#showAll').dispatchEvent(new Event('change')); 1`);
+  check('show finished steps shows all 9', await ev(`document.querySelectorAll('#view .box').length===9`), await ev(`document.querySelectorAll('#view .box').length`));
+  await ev(`document.querySelector('#tabs [data-view=total]').click(); 1`);
+  check('total tab lists materials', await ev(`document.querySelectorAll('#view table.tm tr').length>5 && document.querySelector('#view').textContent.includes('Crafted along the way')`), 0);
+  const k = await ev(`(()=>{const i=document.querySelector('#view input[data-stock]'); i.value='4'; i.dispatchEvent(new Event('change',{bubbles:true})); return i.dataset.stock})()`);
+  check('Have box saves', await ev(`S.stock[${JSON.stringify(k)}]===4`), k);
+  const pk = await ev(`(()=>{const i=document.querySelector('#view input[data-price]'); i.value='777'; i.dispatchEvent(new Event('change',{bubbles:true})); return i.dataset.price})()`);
+  check('Price box saves', await ev(`S.prices[${JSON.stringify(pk)}]===777`), pk);
+  await ev(`document.querySelector('#tabs [data-view=steps]').click(); 1`);
   // persistence after reload
   await send('Page.reload'); await sleep(2000);
   check('saved after reload, no welcome again', await ev(`PROF.list.length===2 && !document.querySelector('#welcome').open`), await ev('PROF.list.map(p=>p.name)'));

@@ -7,7 +7,7 @@ const store = {};
 const ctx = {
   window: {}, console, Math, JSON, Object, Array, Set, Map, String, Number, Promise, setTimeout, clearTimeout, URL: { createObjectURL() {} }, Blob: function () {},
   localStorage: { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v; } },
-  document: { querySelector: s => (els[s] ||= fakeEl()), addEventListener() {}, createElement: fakeEl },
+  document: { querySelector: s => (els[s] ||= fakeEl()), querySelectorAll: () => [], addEventListener() {}, createElement: fakeEl },
   alert() {}, location: { hash: '', href: 'x', pathname: '', search: '' }, history: { replaceState() {} }, addEventListener() {},
 };
 ctx.window = ctx; vm.createContext(ctx);

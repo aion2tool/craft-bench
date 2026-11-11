@@ -4,11 +4,9 @@
 
 Plan any craftable weapon, armor piece or accessory in AION 2 (global client), for Elyos and Asmodian:
 
-- **Your path:** every stage from the first craft to the item you want (regular craft, Splendent upgrade, combo-only), with a one-line explanation of each. Stages you already have fold away.
-- **Bench:** each stage's recipe like the in-game Crafting Materials window: transfer material, have/need (editable), where to get each material (drops, dungeons, shops), sub-recipes.
-- **What it costs:** Safe (no combo luck) / Average / Lucky, the Kinah to buy what you're missing at your market prices, and the crafts to do in order.
-- **Track your materials:** type what you have and market prices right on the recipe rows, in "My materials" or in the 💰 Prices window.
-- **Track real crafts:** "✓ I crafted it in game" uses up the materials and adds the result.
+- **Steps:** one box per craft, left to right with arrows, like the in-game Crafting Materials window: the item, its transfer material and materials with have/need. It starts at your next craft; tick "Show finished steps" to see the whole line. Guaranteed crafts are marked 100%.
+- **Total materials:** everything the item still needs in one list: type what you have and market prices, and see what's short and the Kinah to buy it.
+- **✓ I crafted it:** uses up the materials and moves you to the next box.
 
 ## Your data
 

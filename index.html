@@ -8,13 +8,12 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand">⚒ <b>Craft Bench</b><span class="sub">AION 2 crafting planner &amp; material tracker</span></div>
+  <div class="brand">⚒ <b>Craft Bench</b><span class="sub">what you need for any AION 2 craft</span></div>
   <div class="seg" id="facSeg"><button data-f="Elyos">Elyos</button><button data-f="Asmodian">Asmodian</button></div>
   <span class="grow"></span>
   <button class="who" id="whoB" title="Switch, add or manage profiles">👤 <span id="who"></span> ▾</button>
   <button class="ghost" id="impB" title="Load a backup file">⤒ Import</button>
   <button class="ghost" id="expB" title="Save this profile to a file">⤓ Export</button>
-  <button class="ghost" id="pricesB" title="Enter market prices">💰 Prices</button>
   <button class="ghost" id="shareB" title="Copy a link that loads this profile">🔗 Share</button>
   <button class="ghost" id="helpB">❔ How it works</button>
   <button class="ghost" id="setB">⚙ Settings</button>
@@ -28,37 +27,15 @@
     <div class="list" id="items"></div>
   </aside>
 
-  <!-- target + path + bench -->
+  <!-- the item, then its crafts as a row of boxes -->
   <main class="center">
-    <section class="card target" id="target"></section>
-    <section class="card">
-      <div class="card-h"><h2>Your path</h2><span class="muted" id="pathHint"></span></div>
-      <ol class="path" id="path"></ol>
-    </section>
+    <section class="card topcard" id="topCard"></section>
+    <div class="tabbar">
+      <div class="seg" id="tabs"><button data-view="steps">Steps</button><button data-view="total">Total materials</button></div>
+      <label class="chk" id="showAllW"><input type="checkbox" id="showAll"> Show finished steps</label>
+    </div>
+    <div id="view"></div>
   </main>
-
-  <!-- shopping list -->
-  <aside class="side">
-    <section class="card">
-      <div class="card-h"><h2>What it costs</h2></div>
-      <div class="pad">
-        <div class="seg wide" id="modeSeg">
-          <button data-m="safe">Safe</button><button data-m="avg">Average</button><button data-m="lucky">Lucky</button>
-        </div>
-        <p class="modeTip" id="modeTip"></p>
-        <div class="total" id="total"></div>
-        <div id="short"></div>
-      </div>
-    </section>
-    <section class="card">
-      <div class="card-h"><h2>Crafts to do</h2><span class="muted">in order</span></div>
-      <ol class="todo" id="todo"></ol>
-    </section>
-    <section class="card">
-      <div class="card-h"><h2>My materials</h2><span class="muted">type what you have &amp; prices</span></div>
-      <div class="pad tight"><table class="mats" id="allMats"></table></div>
-    </section>
-  </aside>
 </div>
 
 <!-- how it works -->
@@ -130,15 +107,6 @@
   <form method="dialog"><button class="ghost">Cancel</button></form>
 </dialog>
 
-<!-- prices -->
-<dialog id="pricesDlg">
-  <h2>💰 Market prices</h2>
-  <p class="muted small">Price for one of each, in Kinah, from your server's market. Used for the "What it costs" total. Leave empty if you don't buy it.</p>
-  <label class="row" style="margin-bottom:10px">Server / note <input id="priceNote2" placeholder="e.g. Kisenal (NA East), Nov 9"></label>
-  <div class="priceList" id="priceList"></div>
-  <div class="row gap wrap" style="margin-top:12px"><button id="kisenalB2">Fill in Kisenal prices (Nov 9)</button></div>
-  <form method="dialog"><button class="primary">Done</button></form>
-</dialog>
 
 <div id="toast"></div>
 <script src="data.js"></script>

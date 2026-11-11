@@ -193,171 +193,116 @@ function renderBrowser() {
     || '<p class="muted small" style="padding:10px">Nothing found.</p>';
 }
 
-// ---------------------------------------------------------------- target + path + bench
-const STAT_KEEP = ['Min Attack','Max Attack','Attack','Magic Attack','Defense','Physical Defense','Magic Defense','Accuracy','Magic Accuracy','Critical Hit','Block','HP','MP','Evasion','Parry'];
-function renderTarget() {
-  const id = S.target, it = IT[id], st = stages(id), first = RC[st.length ? st[st.length - 1].rid : recipeFor(id)] || {};
-  const stats = Object.entries(it.st || {}).filter(([k]) => STAT_KEEP.includes(k) || Object.keys(it.st).length <= 8).slice(0, 10);
-  $('#target').innerHTML = `${icon(id, 'l')}<div><div class="meta">${CAT_LABEL[it.c] || it.c} · ${it.g} · ${it.f === 'both' ? 'Both factions' : it.f}</div>
-    <h1>${nm(id)}</h1><div class="meta">Item Level <b>${it.il || '?'}</b> · requires level ${it.rl || '?'} · ${first.pr || ''}</div>
-    <div class="stats">${stats.map(([k, v]) => `<span class="stat">${esc(k)} <b>${esc(v)}</b></span>`).join('')}</div></div>
-    <div class="make">Make<input id="make" type="number" min="1" value="${S.make}">${have(id) ? `<span class="badge b-done">YOU HAVE ${have(id)}</span>` : ''}</div>`;
-  $('#make').onchange = e => { S.make = Math.max(1, +e.target.value || 1); upd(); };
+// ---------------------------------------------------------------- steps view
+// The page is a row of boxes, one per craft, left to right like the in-game bench:
+// [box: craft + its materials] -> [next box] -> ... and a "Total materials" tab.
+function progress(st) { let reached = -1; st.forEach((s, i) => { if (have(s.id)) reached = i; }); return reached; }
+
+function renderTop() {
+  const id = S.target, it = IT[id], st = stages(id), reached = progress(st), next = reached + 1;
+  const status = !st.length ? 'No crafting recipe for this item.'
+    : next >= st.length ? '<b class="ok">✓ You have it</b>'
+    : `Step <b>${next + 1}</b> of ${st.length}${reached >= 0 ? ` · you have ${nm(st[reached].id)}` : ''}`;
+  $('#topCard').innerHTML = `${icon(id, 'l')}<div class="tt"><div class="meta">${CAT_LABEL[it.c] || it.c} · Item Level ${it.il || '?'}</div>
+    <h1>${nm(id)}</h1><div class="status">${status}</div></div>`;
+  document.querySelectorAll('#tabs [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === (S.view || 'steps')));
+  $('#showAllW').style.display = (S.view || 'steps') === 'steps' && reached >= 0 ? '' : 'none';
+  $('#showAll').checked = !!S.showAll;
 }
 
-function stageInfo(s, i, all) {
-  const r = RC[s.rid], p = succ(s.rid), c = r.c ? r.c[1] : 0;
-  const sure = '<span class="badge b-sure" title="This crafting is guaranteed to succeed">100%</span>';
-  if (s.kind === 'up') return { badge: sure + '<span class="badge b-up">SPLENDENT UPGRADE</span>', ex: `Turn ${esc(nameOf(s.base))} into its Splendent version. Guaranteed to succeed. Skip it if your ${esc(nameOf(s.base))} craft came out Splendent (25% combo).` };
-  if (s.kind === 'combo') return { badge: '<span class="badge b-combo">COMBO ONLY</span>', ex: `No upgrade recipe: craft ${esc(nameOf(s.base))} until the ${c}% combo turns it Splendent. About ${Math.round(1 / (c / 100 * p))} crafts on average.` };
-  const g = gearInput(s.rid), comboTxt = r.c ? ` ${c}% chance it comes out as ${esc(nameOf(r.c[0]))}.` : '';
-  const g100 = guaranteed(s.rid);
-  return { badge: (g100 ? sure : '') + '<span class="badge b-craft">CRAFT</span>', ex: `${g ? `Uses ${esc(nameOf(g[0]))} as the transfer material. ` : ''}${g100 ? 'Guaranteed to succeed.' : `${Math.round(p * 100)}% success${S.prof[r.pr] ? '' : ' (set your proficiency in ⚙ Settings for real odds)'}.`}${comboTxt}` };
+function stepTitle(s) {
+  if (s.kind === 'up') return 'Splendent Upgrade';
+  if (s.kind === 'combo') return 'Craft until Combo';
+  return 'Craft';
+}
+function stepTip(s) {
+  const r = RC[s.rid];
+  if (s.kind === 'up') return `Skip this box if your ${esc(nameOf(s.base))} came out Splendent.`;
+  if (s.kind === 'combo') return `Craft ${esc(nameOf(s.base))} until the 25% combo makes it Splendent (about 4 tries).`;
+  if (r.c && upgradeOf[r.c[0]]) return `25% chance it comes out Splendent: then skip the next box.`;
+  if (!guaranteed(s.rid)) return `Can fail${S.prof[r.pr] ? ` (${Math.round(succ(s.rid) * 100)}% at your proficiency)` : ''}.`;
+  return '';
+}
+function matLine(m, need, transfer) {
+  const h = have(m), short = h < need, sub = !transfer && (recipeFor(m) && !isGear(m)) ? RC[recipeFor(m)] : null;
+  return `<div class="ml${short ? ' short' : ''}">${icon(m, 's')}<div class="mn">${transfer ? '<span class="tag">Transfer Material</span>' : ''}${nm(m)}
+      ${sub ? `<div class="subr">craft from ${sub.m.map(([x, n]) => `${n} ${esc(norm(nameOf(x)))}`).join(' + ')}</div>` : ''}</div>
+    <div class="mc">${fmt(h)}/${fmt(need)}</div></div>`;
+}
+function stepCard(s, i, reached) {
+  const r = RC[s.rid], done = i <= reached, isNext = i === reached + 1;
+  const result = s.id, makes = s.kind === 'combo' ? r.p : s.id;
+  const canCraft = (!r.t || have(r.t) >= 1) && r.m.every(([m, x]) => have(m) >= x);
+  const sure = guaranteed(s.rid) ? '<span class="badge b-sure">100%</span>' : '';
+  const tip = stepTip(s);
+  return `<div class="box${done ? ' done' : ''}${isNext ? ' next' : ''}">
+    <div class="bx-h"><span class="no">${done ? '✓' : i + 1}</span><span class="kind">${stepTitle(s)}</span>${sure}</div>
+    <div class="bx-item">${icon(result, 'm')}<div><div class="bx-name">${nm(result)}</div>${makes !== result ? `<div class="muted small">by crafting ${esc(nameOf(makes))}</div>` : ''}</div></div>
+    <div class="bx-sub">Crafting Materials</div>
+    <div class="bx-mats">${r.t ? matLine(r.t, 1, true) : ''}${r.m.map(([m, x]) => matLine(m, x, false)).join('')}</div>
+    ${tip ? `<div class="bx-tip">${tip}</div>` : ''}
+    <div class="bx-f">${done ? '<span class="ok">✓ You have it</span>'
+      : isNext ? `<span class="${canCraft ? 'ok' : 'warn'}">${canCraft ? 'Ready to craft' : 'Missing materials'}</span><button class="primary sm" data-did="${s.rid}">✓ I crafted it</button>`
+      : '<span class="muted">Later</span>'}</div>
+  </div>`;
+}
+function renderSteps() {
+  const st = stages(S.target), reached = progress(st);
+  if (!st.length) { $('#view').innerHTML = '<p class="muted">This item has no crafting recipe.</p>'; return; }
+  if (reached >= st.length - 1) { $('#view').innerHTML = `<div class="box done big"><div class="bx-item">${icon(S.target, 'm')}<div><div class="bx-name">${nm(S.target)}</div><div class="ok">✓ You have it. Nothing left to craft.</div></div></div></div>`; return; }
+  const from = S.showAll ? 0 : reached + 1;
+  $('#view').innerHTML = `<div class="flow">${st.slice(from).map((s, k) => (k ? '<div class="arrow">➜</div>' : '') + stepCard(s, from + k, reached)).join('')}</div>`;
 }
 
-function renderPath() {
-  const st = stages(S.target);
-  // done: you have this stage's item or a later one
-  let reached = -1;
-  st.forEach((s, i) => { if (have(s.id)) reached = i; });
-  const next = reached + 1;
-  if (S.sel == null || !st.some(s => s.id === S.sel)) S.sel = (st[next] || st[st.length - 1] || {}).id;
-  $('#pathHint').textContent = st.length ? (next >= st.length ? 'You have it!' : `Stage ${next + 1} of ${st.length} is next`) : '';
-  const fold = reached >= 1 && !S.showDone;
-  $('#path').innerHTML = (reached >= 1 ? `<li class="st done fold"><span class="dot">✓</span><div class="head" data-fold="1"><div class="t"><div class="nm">${reached + 1} stage${reached ? 's' : ''} done</div>
-      <div class="ex">You already have ${esc(nameOf(st[reached].id))}, so everything before it is covered.</div></div><span class="badge b-done">${fold ? 'SHOW' : 'HIDE'}</span></div></li>` : '')
-    + st.map((s, i) => {
-    if (fold && i <= reached) return '';
-    const info = stageInfo(s, i, st), done = i <= reached, isNext = i === next, sel = s.id === S.sel;
-    return `<li class="st${done ? ' done' : ''}${isNext ? ' next' : ''}${sel ? ' sel' : ''}" data-id="${s.id}">
-      <span class="dot">${done ? '✓' : i + 1}</span>
-      <div class="head">${icon(s.id)}<div class="t"><div class="nm">${nm(s.id)}</div><div class="ex">${info.ex}</div></div>
-        ${done ? '<span class="badge b-done">DONE</span>' : isNext ? '<span class="badge b-next">NEXT</span>' : ''}${info.badge}<span class="chev">${sel ? '▾' : '▸'}</span></div>
-      ${sel ? bench(s) : ''}</li>`;
-  }).join('') || '<li class="muted">No crafting recipe for this item.</li>';
-}
-
-let openSub = new Set();
-function matRows(rid, mult, depth, transferFirst) {
-  const r = RC[rid], rows = [];
-  if (transferFirst && r.t) rows.push([r.t, 1, true]);
-  for (const [m, x] of r.m) rows.push([m, x, false]);
-  return rows.map(([m, x, tr]) => {
-    const need = x * mult, h = have(m), short = h < need;
-    const sub = upgradeOf[m] || recipeFor(m) || comboOf[m];
-    const key = rid + ':' + m, open = openSub.has(key);
-    const it = IT[m] || {}, how = sub ? (S.buy[norm(it.n)] ? 'Buying instead of crafting' : 'Crafted · click + to see its recipe') : (it.src || 'Gathered / drop / shop');
-    const p = price(m);
-    return `<div class="mrow" title="${esc(it.src || '')}">${sub && depth < 3 ? `<button class="exp" data-sub="${key}">${open ? '−' : '+'}</button>` : '<span></span>'}${icon(m)}
-      <div style="min-width:0"><div class="nm">${tr ? '<span class="tag">Transfer Material</span>' : ''}${nm(m)}</div><div class="how">${esc(how)}</div></div>
-      <div class="cnt${short ? ' short' : ''}"><label class="haveIn" title="How many you have"><input type="number" min="0" data-stock="${esc(norm(it.n))}" value="${h}"> / ${fmt(need)}</label>
-        ${isGear(m) ? '' : `<label class="priceIn" title="Market price for one"><input type="number" min="0" data-price="${esc(norm(it.n))}" value="${p ?? ''}" placeholder="price"> K</label>`}
-        ${short && p ? `<small>buy ≈ ${kina((need - h) * p)}</small>` : ''}</div></div>
-      ${open && sub ? `<div class="sub">${matRows(upgradeOf[m] || recipeFor(m) || comboOf[m], up1(need / RC[upgradeOf[m] || recipeFor(m) || comboOf[m]].n), depth + 1, true)}</div>` : ''}`;
-  }).join('');
-}
-function bench(s) {
-  const rid = s.kind === 'combo' ? s.rid : s.rid, r = RC[rid], p = succ(rid);
-  const canCraft = (r.t ? have(r.t) >= 1 : true) && r.m.every(([m, x]) => have(m) >= x);
-  const odds = [];
-  odds.push(guaranteed(rid) ? `<span class="odd good">Success <b>100% · guaranteed</b></span>`
-    : `<span class="odd ${p >= .999 ? 'good' : 'warn'}">Success <b>${Math.round(p * 100)}%</b>${S.prof[r.pr] ? '' : ' (proficiency not set)'}</span>`);
-  if (r.c) odds.push(`<span class="odd pink">Combo <b>${r.c[1]}%</b> → ${esc(nameOf(r.c[0]))}</span>`);
-  odds.push(`<span class="odd">${esc(r.pr)} <b>${r.lv ? 'proficiency ' + r.lv : 'any proficiency'}</b></span>`);
-  if (tooLow(rid)) odds.push(`<span class="odd warn"><b>Your proficiency is too low</b></span>`);
-  const title = s.kind === 'combo' ? `Recipe: ${esc(nameOf(r.p))} (hope for the combo)` : `Recipe: ${esc(nameOf(r.p))}`;
-  return `<div class="bench"><div class="bh">${title}<span class="grow"></span><a class="small" href="${r.u}" target="_blank">source ↗</a></div>
-    <div class="odds">${odds.join('')}</div>
-    ${matRows(rid, 1, 0, true)}
-    <div class="act"><span class="note">${canCraft ? 'You have everything for one craft.' : 'Red = still missing. The cost panel adds it all up.'}</span>
-      <button class="primary" data-did="${rid}" data-stage="${s.id}">✓ I crafted it in game</button></div></div>`;
-}
-
-// ---------------------------------------------------------------- side panel
-function renderSide() {
-  $('#modeSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.m === S.mode));
-  $('#modeTip').textContent = MODES[S.mode];
-  const P = plan(S.target, S.make, S.mode), Ps = plan(S.target, S.make, 'safe'), Pl = plan(S.target, S.make, 'lucky'), Pa = plan(S.target, S.make, 'avg');
-  const short = Object.entries(P.raw).filter(([, r]) => r.miss > 1e-9).sort((a, b) => (b[1].miss * (S.prices[b[0]] || 0)) - (a[1].miss * (S.prices[a[0]] || 0)));
-  const priced = short.some(([k]) => S.prices[k] != null);
-  $('#total').innerHTML = short.length && !priced ? `<div class="lbl">Kinah cost</div><div class="big" style="font-size:18px">Add market prices to see it</div>
-    <div class="cmp">Type prices in <b>All materials</b>, or ⚙ Settings → Load Kisenal prices</div>`
-    : short.length ? `<div class="lbl">Kinah to buy what you're missing</div><div class="big">${P.cost.toLocaleString()}</div>
-    <div class="cmp">Safe <b>${kina(Ps.cost)}</b> · Average <b>${kina(Pa.cost)}</b> · Lucky <b>${kina(Pl.cost)}</b></div>`
-    : `<div class="alldone">✓ You have every material you need${S.mode !== 'safe' ? ' (in this mode)' : ''}</div>`;
-  $('#short').innerHTML = short.map(([k, r]) => { const p = S.prices[k], it = IT[r.id] || {};
-    return `<div class="srow" title="${esc(it.src || '')}">${icon(r.id, 's')}<div style="min-width:0"><div class="nm">${nm(r.id)}</div><div class="how">${esc(it.src || '')}</div></div>
-      <div class="r"><b>${fmt(up1(r.miss))}</b> short<small>${p != null ? kina(up1(r.miss) * p) : '<span style="color:#ffb14a">no price</span>'}</small>
-        <label class="priceIn"><input type="number" min="0" data-price="${esc(k)}" value="${p ?? ''}" placeholder="price"> K</label></div></div>`; }).join('')
-    + (P.noPrice.length ? `<div class="warnline">No price for: ${P.noPrice.map(esc).join(', ')} (not in the total)</div>` : '');
-  // crafts to do
-  $('#todo').innerHTML = P.crafts.map((c, i) => { const r = RC[c.rid], k = norm(nameOf(r.p)), isMat = !isGear(r.p);
-    const verb = c.how === 'up' ? 'Upgrade to' : c.how === 'combo' ? 'Craft for combo:' : 'Craft';
-    return `<li><span class="no">${i + 1}</span>${icon(c.how === 'combo' ? r.c[0] : r.p, 'xs')}<div style="min-width:0">${verb} ${nm(r.p)}
-      <div class="k">${esc(r.pr)}${isMat ? ` · <button class="linkb" data-buy="${esc(k)}">buy instead</button>` : ''}</div></div><span class="x">×${fmt(S.mode === 'avg' ? Math.round(c.n * 10) / 10 : up1(c.n))}</span></li>`; }).join('')
-    + Object.keys(S.buy).filter(k => S.buy[k]).map(k => `<li><span class="no">$</span><span></span><div>Buying <b>${esc(k)}</b> <div class="k"><button class="linkb" data-craft="${esc(k)}">craft it instead</button></div></div><span></span></li>`).join('')
-    || '<li class="muted">Nothing to craft.</li>';
-  // my materials: everything this item needs, base materials and the crafted pieces in between
-  const rows = Object.entries(P.dem).filter(([k]) => k !== norm(nameOf(S.target)))
-    .sort((a, b) => isGear(a[1].id) - isGear(b[1].id) || a[0].localeCompare(b[0]));
-  $('#allMats').innerHTML = `<tr><th>Material</th><th>Need</th><th>Have</th><th>Status</th><th>Price</th></tr>` + rows.map(([k, d]) => {
-    const raw = P.raw[k], h = S.stock[k] || 0, crafted = !raw;
-    const st = raw ? (raw.miss > 1e-9 ? `<td class="miss">${fmt(up1(raw.miss))} short</td>` : '<td class="ok">✓</td>')
-      : (d.need - h > 1e-9 ? `<td class="craft">craft ${fmt(up1(d.need - h))}</td>` : '<td class="ok">✓</td>');
-    return `<tr><td><span class="mn">${icon(d.id, 'xs')}${nm(d.id)}</span></td><td>${fmt(up1(d.need))}</td>
-      <td><input type="number" min="0" data-stock="${esc(k)}" value="${h}"></td>${st}
-      <td>${isGear(d.id) ? '' : `<input class="p" type="number" min="0" data-price="${esc(k)}" value="${S.prices[k] ?? ''}" placeholder="—">`}</td></tr>`; }).join('')
-    || '<tr><td class="muted">Nothing needed.</td></tr>';
+function renderTotals() {
+  const P = plan(S.target, S.make, 'safe');
+  const base = Object.entries(P.raw).sort((a, b) => (b[1].miss > 1e-9) - (a[1].miss > 1e-9) || a[0].localeCompare(b[0]));
+  const made = Object.entries(P.dem).filter(([k, d]) => !P.raw[k] && k !== norm(nameOf(S.target)));
+  const short = base.filter(([, r]) => r.miss > 1e-9), priced = short.filter(([k]) => S.prices[k] != null);
+  const cost = priced.reduce((t, [k, r]) => t + up1(r.miss) * S.prices[k], 0);
+  $('#view').innerHTML = `<div class="totals">
+    <div class="sumline">${short.length ? `<span>You're missing <b>${short.length}</b> material${short.length > 1 ? 's' : ''}</span>` : '<span class="ok">✓ You have every base material</span>'}
+      ${priced.length ? `<span class="kin">Buying them: <b>${cost.toLocaleString()}</b> Kinah${priced.length < short.length ? ` <span class="muted small">(${short.length - priced.length} without a price)</span>` : ''}</span>` : short.length ? '<span class="muted small">Type prices below to see the Kinah cost</span>' : ''}
+      <span class="grow"></span><button class="ghost sm" id="kisenalT">Fill Kisenal prices</button></div>
+    <table class="tm"><tr><th>Material</th><th>Need</th><th>Have</th><th>Short</th><th>Price each</th><th>Cost</th></tr>
+    ${base.map(([k, r]) => { const p = S.prices[k], miss = up1(r.miss);
+      return `<tr class="${miss ? 'sh' : ''}"><td><span class="mn">${icon(r.id, 'xs')}${nm(r.id)}</span><div class="src">${esc((IT[r.id] || {}).src || '')}</div></td><td>${fmt(up1(r.need))}</td>
+        <td><input type="number" min="0" data-stock="${esc(k)}" value="${S.stock[k] || 0}"></td><td class="${miss ? 'miss' : 'ok'}">${miss ? fmt(miss) : '✓'}</td>
+        <td><input class="p" type="number" min="0" data-price="${esc(k)}" value="${p ?? ''}" placeholder="—"></td><td class="kc">${miss && p != null ? kina(miss * p) : ''}</td></tr>`; }).join('')}</table>
+    ${made.length ? `<h3>Crafted along the way</h3><table class="tm"><tr><th>Item</th><th>Need</th><th>Have</th><th>To craft</th></tr>
+      ${made.map(([k, d]) => { const h = S.stock[k] || 0, todo = up1(Math.max(0, d.need - h));
+        return `<tr><td><span class="mn">${icon(d.id, 'xs')}${nm(d.id)}</span></td><td>${fmt(up1(d.need))}</td><td><input type="number" min="0" data-stock="${esc(k)}" value="${h}"></td><td class="${todo ? 'craft' : 'ok'}">${todo ? todo : '✓'}</td></tr>`; }).join('')}</table>` : ''}
+    <p class="muted small">Counts assume no lucky combos. Your numbers save automatically.</p></div>`;
+  $('#kisenalT').onclick = () => { Object.assign(S.prices, KISENAL.prices); S.priceNote = KISENAL.note; upd(); toast('Kisenal prices filled in', 'ok'); };
 }
 
 // ---------------------------------------------------------------- render + events
 function upd() { save(); render(); }
 function render() {
   if (!S.target || !IT[S.target] || !facOk(S.target)) S.target = topOfCat(S.cat);
-  renderBrowser(); renderTarget(); renderPath(); renderSide();
+  renderBrowser(); renderTop();
+  (S.view === 'total' ? renderTotals : renderSteps)();
 }
 function toast(html, cls) {
   const t = $('#toast'); t.innerHTML = `<div class="tb ${cls || ''}">${html}</div>`; t.classList.add('show');
   clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-$('#facSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; S.fac = b.dataset.f; S.target = null; S.sel = null; upd(); };
+$('#facSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; S.fac = b.dataset.f; S.target = null; upd(); };
 $('#search').oninput = () => renderBrowser();
-$('#cats').onclick = e => { const b = e.target.closest('[data-cat]'); if (!b) return; $('#search').value = ''; S.cat = b.dataset.cat; S.target = topOfCat(S.cat); S.sel = null; openSub.clear(); upd(); };
-$('#items').onclick = e => { const d = e.target.closest('[data-id]'); if (!d) return; S.target = +d.dataset.id; S.cat = IT[S.target].c; S.sel = null; openSub.clear(); upd(); };
-$('#modeSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; upd(); };
-$('#path').onclick = e => {
-  const sub = e.target.closest('[data-sub]'); if (sub) { const k = sub.dataset.sub; openSub.has(k) ? openSub.delete(k) : openSub.add(k); renderPath(); return; }
-  const did = e.target.closest('[data-did]'); if (did) { craftedDialog(+did.dataset.did); return; }
-  if (e.target.closest('[data-fold]')) { S.showDone = !S.showDone; save(); renderPath(); return; }
-  if (e.target.closest('.bench')) return;
-  const li = e.target.closest('.st'); if (!li) return;
-  S.sel = S.sel === +li.dataset.id ? -1 : +li.dataset.id; openSub.clear(); save(); renderPath();
-};
-$('#todo').onclick = e => {
-  const b = e.target.closest('[data-buy]'); if (b) { S.buy[b.dataset.buy] = true; upd(); return; }
-  const c = e.target.closest('[data-craft]'); if (c) { delete S.buy[c.dataset.craft]; upd(); }
-};
-// every Have / Price box on the page (bench rows, cost list, materials table, prices window)
+$('#cats').onclick = e => { const b = e.target.closest('[data-cat]'); if (!b) return; $('#search').value = ''; S.cat = b.dataset.cat; S.target = topOfCat(S.cat); upd(); };
+$('#items').onclick = e => { const d = e.target.closest('[data-id]'); if (!d) return; S.target = +d.dataset.id; S.cat = IT[S.target].c; upd(); };
+$('#tabs').onclick = e => { const b = e.target.closest('[data-view]'); if (!b) return; S.view = b.dataset.view; upd(); };
+$('#showAll').onchange = e => { S.showAll = e.target.checked; upd(); };
+$('#view').onclick = e => { const d = e.target.closest('[data-did]'); if (d) craftedDialog(+d.dataset.did); };
+// every Have / Price box
 document.addEventListener('change', e => {
   const k = e.target.dataset && e.target.dataset.stock, pk = e.target.dataset && e.target.dataset.price;
   if (k == null && pk == null) return;
   if (k != null) S.stock[k] = Math.max(0, +e.target.value || 0);
   if (pk != null) { if (e.target.value === '') delete S.prices[pk]; else S.prices[pk] = Math.max(0, +e.target.value || 0); }
-  upd(); if ($('#pricesDlg').open) renderPrices();
+  upd();
 });
-
-// prices window: every material the current item needs, in one list
-function renderPrices() {
-  const P = plan(S.target, S.make, 'safe');
-  const keys = Object.entries(P.dem).filter(([, d]) => !isGear(d.id)).sort((a, b) => !!P.raw[b[0]] - !!P.raw[a[0]] || a[0].localeCompare(b[0]));
-  $('#priceNote2').value = S.priceNote || '';
-  $('#priceList').innerHTML = keys.map(([k, d]) => `<label class="prow">${icon(d.id, 'xs')}<span class="pn">${nm(d.id)}${P.raw[k] ? '' : ' <span class="muted small">(craftable)</span>'}</span>
-    <input type="number" min="0" data-price="${esc(k)}" value="${S.prices[k] ?? ''}" placeholder="Kinah each"></label>`).join('');
-}
-$('#pricesB').onclick = () => { renderPrices(); $('#pricesDlg').showModal(); };
-$('#priceNote2').onchange = e => { S.priceNote = e.target.value; save(); };
-$('#kisenalB2').onclick = () => { Object.assign(S.prices, KISENAL.prices); S.priceNote = KISENAL.note; upd(); renderPrices(); toast('Kisenal prices loaded', 'ok'); };
 
 // record a real craft: use up the materials, add what you got
 function craftedDialog(rid) {
@@ -375,7 +320,7 @@ function craftedDialog(rid) {
     for (const [m, x] of r.m) use(m, x);
     const res = b.dataset.res, got = res === 'combo' ? r.c[0] : res === 'ok' ? r.p : null;
     if (got) { const k = norm(nameOf(got)); S.stock[k] = (S.stock[k] || 0) + (res === 'combo' ? (r.c[2] || 1) : r.n); }
-    dlg.close(); S.sel = null; upd();
+    dlg.close(); upd();
     toast(got ? `${icon(got, 's')} Added ${esc(nameOf(got))} to your inventory` : 'Materials used up', got ? (res === 'combo' ? 'combo' : 'ok') : 'fail');
   };
   dlg.showModal();
