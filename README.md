@@ -16,6 +16,10 @@ Everything is saved **in your own browser** (localStorage); nothing is uploaded.
 - **Export / Import:** save a profile (or all of them) to a `.json` file and load it on another PC or browser.
 - **Share:** copies a link with your profile packed into it. Whoever opens it can load it as a new profile of their own.
 
+## Also from aion2tool
+
+- **[RATmeter](https://github.com/aion2tool/ratmeter)**: AION 2 DPS meter with fight result cards, boss timers and a character Control Panel. [Download](https://github.com/aion2tool/ratmeter/releases/latest).
+
 ## Data
 
 Recipes, item stats, icons and material sources come from [aion2data.com](https://aion2data.com), read from the AION 2 global client (2026.10.28). The Dragon Lord upgrade recipes don't list the item you put in; Craft Bench fills it in (the previous piece of the line), as the game shows it.
