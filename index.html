@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Craft Bench</title>
+<link rel="stylesheet" href="bench.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">⚒ <b>Craft Bench</b><span class="sub">AION 2 crafting planner &amp; simulator</span></div>
+  <div class="seg" id="facSeg"><button data-f="Elyos">Elyos</button><button data-f="Asmodian">Asmodian</button></div>
+  <span class="grow"></span>
+  <button class="who" id="whoB" title="Switch, add or manage profiles">👤 <span id="who"></span> ▾</button>
+  <button class="ghost" id="impB" title="Load a backup file">⤒ Import</button>
+  <button class="ghost" id="expB" title="Save this profile to a file">⤓ Export</button>
+  <button class="ghost" id="shareB" title="Copy a link that loads this profile">🔗 Share</button>
+  <button class="ghost" id="helpB">❔ How it works</button>
+  <button class="ghost" id="setB">⚙ Settings</button>
+</header>
+
+<div class="layout">
+  <!-- item browser -->
+  <aside class="browser">
+    <input id="search" type="search" placeholder="Search any weapon, armor or accessory…">
+    <div id="cats"></div>
+    <div class="list" id="items"></div>
+  </aside>
+
+  <!-- target + path + bench -->
+  <main class="center">
+    <section class="card target" id="target"></section>
+    <section class="card">
+      <div class="card-h"><h2>Your path</h2><span class="muted" id="pathHint"></span></div>
+      <ol class="path" id="path"></ol>
+    </section>
+  </main>
+
+  <!-- shopping list -->
+  <aside class="side">
+    <section class="card">
+      <div class="card-h"><h2>What it costs</h2></div>
+      <div class="pad">
+        <div class="seg wide" id="modeSeg">
+          <button data-m="safe">Safe</button><button data-m="avg">Average</button><button data-m="lucky">Lucky</button>
+        </div>
+        <p class="modeTip" id="modeTip"></p>
+        <div class="total" id="total"></div>
+        <div id="short"></div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-h"><h2>Crafts to do</h2><span class="muted">in order</span></div>
+      <ol class="todo" id="todo"></ol>
+    </section>
+    <section class="card">
+      <div class="card-h"><h2>Simulator</h2><span class="muted">random runs of the whole path</span></div>
+      <div class="pad" id="sim">
+        <p class="muted small">Rolls every craft's success and 25% combo like the game does, many times, and buys whatever runs out at your prices.</p>
+        <button class="primary" id="simB">Run 2,000 simulations</button>
+        <div id="simOut"></div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-h"><h2>All materials</h2><span class="muted">edit Have &amp; Price</span></div>
+      <div class="pad tight"><table class="mats" id="allMats"></table></div>
+    </section>
+  </aside>
+</div>
+
+<!-- how it works -->
+<dialog id="help">
+  <h2>How crafting works</h2>
+  <ol class="howto">
+    <li><b>Regular craft.</b> Uses the materials shown at a crafting bench. It can fail below 100% success; the chance rises with your proficiency in that profession. <span class="muted">(Planner assumes a failed craft uses up its materials.)</span></li>
+    <li><b>Combo (25%).</b> When a gear craft succeeds, it has a 25% chance to come out as the <b class="gold">Splendent</b> version instead, for free.</li>
+    <li><b>Splendent upgrade.</b> For Dragon Lord gear you can also turn the normal piece into the Splendent one with a smaller recipe. It always succeeds. If your combo already hit, skip it.</li>
+    <li><b>Transfer Material.</b> The previous piece goes into the next recipe. Its enhancement, amplification and Soul Binding carry over, and the result is soul-bound to you.</li>
+    <li><b>Combo only.</b> The lower Splendent pieces (e.g. Artisan's Splendent) have no upgrade recipe: you craft the normal one until the combo hits. That's 4 crafts on average; 9 crafts cover 90% of cases.</li>
+    <li><b>Safe / Average / Lucky.</b> Safe = no combos hit (plan for this). Average = what it costs over many tries. Lucky = every combo hits.</li>
+  </ol>
+  <p class="muted small">Recipes, stats and drop sources: <a href="https://aion2data.com" target="_blank">aion2data.com</a>, global client <span id="build"></span>.</p>
+  <form method="dialog"><button class="primary">Got it</button></form>
+</dialog>
+
+<!-- settings -->
+<dialog id="settings">
+  <h2>Settings</h2>
+  <h3>Your crafting proficiency</h3>
+  <p class="muted small">Sets each craft's success chance. Leave empty to assume every craft succeeds.</p>
+  <div class="profs" id="profs"></div>
+  <h3>Prices</h3>
+  <label class="row">Server / note <input id="priceNote" placeholder="e.g. Kisenal (NA East)"></label>
+  <p class="muted small">Edit prices in "All materials". Missing prices aren't counted in the total. Prices change, so check your own server's market.</p>
+  <div class="row gap wrap"><button id="kisenalB">Load Kisenal prices (Nov 9)</button><button class="ghost" id="clearPricesB">Clear all prices</button></div>
+  <h3>Backup</h3>
+  <p class="muted small">Your data lives only in this browser. Export to keep a copy or move it to another PC.</p>
+  <div class="row gap wrap"><button id="expAllB">Export all profiles</button><button id="impB2">Import</button></div>
+  <form method="dialog"><button class="primary">Done</button></form>
+</dialog>
+
+<!-- profiles -->
+<dialog id="people">
+  <h2>Profiles</h2>
+  <p class="muted small">One profile per player or character: each keeps its own inventory, prices and proficiency. Everything stays in this browser.</p>
+  <div id="peopleList"></div>
+  <div class="row gap wrap" style="margin-top:12px"><button class="primary" id="newProfB">+ New profile</button><button id="dupProfB">Duplicate this one</button><button id="impB3">Import a file</button></div>
+  <form method="dialog"><button class="ghost">Close</button></form>
+</dialog>
+
+<!-- first visit -->
+<dialog id="welcome">
+  <h2>Welcome to Craft Bench ⚒</h2>
+  <p>Plan any craftable weapon, armor or accessory: every stage, every material, what you're missing and what it costs.</p>
+  <ol class="steps3">
+    <li><b>Pick an item</b> on the left.</li>
+    <li><b>Follow "Your path"</b>: click a stage to see its recipe, like the in-game bench.</li>
+    <li><b>Type what you have</b> in "All materials" (or tick ✓ I crafted it in game as you go).</li>
+    <li><b>Add market prices</b> to see the Kinah cost.</li>
+  </ol>
+  <div class="startform">
+    <label>Your name or character <input id="startName" placeholder="e.g. Shoko" maxlength="40"></label>
+    <label>Faction <select id="startFac"><option>Elyos</option><option>Asmodian</option></select></label>
+    <label class="chk"><input type="checkbox" id="welcomeKisenal"> Start with Kisenal (NA East) prices from Nov 9, 2026</label>
+  </div>
+  <p class="muted small">Your data is saved only in this browser, never uploaded. Use Export / Share to move it.</p>
+  <div class="row gap wrap" style="justify-content:flex-end;margin-top:14px"><button id="impB4">I have a backup file</button><button class="primary" id="startB">Start</button></div>
+</dialog>
+<input type="file" id="impF" accept=".json,application/json" hidden>
+
+<!-- crafted in game -->
+<dialog id="crafted">
+  <h2 id="craftedTitle">I crafted this in game</h2>
+  <p class="muted small" id="craftedTip"></p>
+  <div class="row gap wrap" id="craftedBtns"></div>
+  <form method="dialog"><button class="ghost">Cancel</button></form>
+</dialog>
+
+<div id="toast"></div>
+<script src="data.js"></script>
+<script src="bench.js"></script>
+</body>
+</html>
