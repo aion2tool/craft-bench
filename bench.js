@@ -84,10 +84,20 @@ const nm = id => `<span class="n-${(IT[id] || {}).g || 'Common'}">${esc(nameOf(i
 const facOk = id => { const f = (IT[id] || {}).f; return !f || f === 'both' || f === S.fac; };
 const isGear = id => GEAR.has((IT[id] || {}).c);
 
-/** Success chance (0..1) of a recipe at your proficiency; 1 when not set or always-succeed recipes. */
+/**
+ * Guaranteed crafts: the Splendent upgrades, and every Gear Transfer craft that puts in a gold (Unique) piece,
+ * i.e. True Dragon Lord onward (the game says "This crafting is guaranteed to succeed"). The data still lists a
+ * success curve for some of them, which the game doesn't apply.
+ */
+function guaranteed(rid) {
+  const r = RC[rid];
+  if (!r.s || !r.s.length || r.t) return true;
+  return r.m.some(([m]) => isGear(m) && (IT[m] || {}).g === 'Unique');
+}
+/** Success chance (0..1) of a recipe at your proficiency; 1 when guaranteed or proficiency isn't set. */
 function succ(rid) {
   const r = RC[rid];
-  if (!r.s || !r.s.length) return 1;
+  if (guaranteed(rid)) return 1;
   const p = S.prof[r.pr];
   if (p === undefined || p === null || p === '') return 1;
   const gap = Math.max(0, Math.min(r.s.length - 1, +p - r.lv));
@@ -197,10 +207,12 @@ function renderTarget() {
 
 function stageInfo(s, i, all) {
   const r = RC[s.rid], p = succ(s.rid), c = r.c ? r.c[1] : 0;
-  if (s.kind === 'up') return { badge: '<span class="badge b-up">SPLENDENT UPGRADE</span>', ex: `Turn ${esc(nameOf(s.base))} into its Splendent version. Always succeeds. Skip it if your ${esc(nameOf(s.base))} craft came out Splendent (25% combo).` };
+  const sure = '<span class="badge b-sure" title="This crafting is guaranteed to succeed">100%</span>';
+  if (s.kind === 'up') return { badge: sure + '<span class="badge b-up">SPLENDENT UPGRADE</span>', ex: `Turn ${esc(nameOf(s.base))} into its Splendent version. Guaranteed to succeed. Skip it if your ${esc(nameOf(s.base))} craft came out Splendent (25% combo).` };
   if (s.kind === 'combo') return { badge: '<span class="badge b-combo">COMBO ONLY</span>', ex: `No upgrade recipe: craft ${esc(nameOf(s.base))} until the ${c}% combo turns it Splendent. About ${Math.round(1 / (c / 100 * p))} crafts on average.` };
   const g = gearInput(s.rid), comboTxt = r.c ? ` ${c}% chance it comes out as ${esc(nameOf(r.c[0]))}.` : '';
-  return { badge: '<span class="badge b-craft">CRAFT</span>', ex: `${g ? `Uses ${esc(nameOf(g[0]))} as the transfer material. ` : ''}${r.s ? `${Math.round(p * 100)}% success${S.prof[r.pr] ? '' : ' (set proficiency for real odds)'}.` : 'Always succeeds.'}${comboTxt}` };
+  const g100 = guaranteed(s.rid);
+  return { badge: (g100 ? sure : '') + '<span class="badge b-craft">CRAFT</span>', ex: `${g ? `Uses ${esc(nameOf(g[0]))} as the transfer material. ` : ''}${g100 ? 'Guaranteed to succeed.' : `${Math.round(p * 100)}% success${S.prof[r.pr] ? '' : ' (set your proficiency in ⚙ Settings for real odds)'}.`}${comboTxt}` };
 }
 
 function renderPath() {
@@ -248,7 +260,8 @@ function bench(s) {
   const rid = s.kind === 'combo' ? s.rid : s.rid, r = RC[rid], p = succ(rid);
   const canCraft = (r.t ? have(r.t) >= 1 : true) && r.m.every(([m, x]) => have(m) >= x);
   const odds = [];
-  odds.push(`<span class="odd ${p >= .999 ? 'good' : 'warn'}">Success <b>${r.s ? Math.round(p * 100) + '%' : 'Guaranteed'}</b></span>`);
+  odds.push(guaranteed(rid) ? `<span class="odd good">Success <b>100% · guaranteed</b></span>`
+    : `<span class="odd ${p >= .999 ? 'good' : 'warn'}">Success <b>${Math.round(p * 100)}%</b>${S.prof[r.pr] ? '' : ' (proficiency not set)'}</span>`);
   if (r.c) odds.push(`<span class="odd pink">Combo <b>${r.c[1]}%</b> → ${esc(nameOf(r.c[0]))}</span>`);
   odds.push(`<span class="odd">${esc(r.pr)} <b>${r.lv ? 'proficiency ' + r.lv : 'any proficiency'}</b></span>`);
   if (tooLow(rid)) odds.push(`<span class="odd warn"><b>Your proficiency is too low</b></span>`);

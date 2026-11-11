@@ -203,3 +203,4 @@ td.craft{color:#ff8fd0;font-weight:600}
 .priceList{max-height:55vh;overflow:auto;border:1px solid var(--line);border-radius:9px}
 .prow{display:grid;grid-template-columns:24px 1fr 130px;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid #ffffff08}
 .prow .pn{font-weight:600;font-size:13px}.prow input{text-align:right}
+.b-sure{background:#123222;color:var(--green);border:1px solid #5fe3a155}
