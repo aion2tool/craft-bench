@@ -255,3 +255,14 @@ table.tm input{width:72px;text-align:right;padding:3px 6px}
 table.tm input.p{width:100px}
 table.tm tr.sh td:first-child .mn{color:inherit}
 td.kc{color:var(--gold);font-weight:600}
+
+/* ✓ "I have all of it" box */
+.got{display:inline-flex;align-items:center;cursor:pointer;margin-right:7px;vertical-align:middle}
+.got input{position:absolute;opacity:0;pointer-events:none}
+.got span{width:18px;height:18px;border-radius:5px;border:2px solid #4b5d74;background:#0c1017;display:grid;place-items:center;transition:.12s}
+.got:hover span{border-color:var(--gold)}
+.got input:checked + span{background:var(--green);border-color:var(--green)}
+.got input:checked + span::after{content:"✓";color:#06210f;font-size:12px;font-weight:900;line-height:1}
+.got input:focus-visible + span{outline:2px solid var(--gold);outline-offset:2px}
+.ml .mc{display:flex;align-items:center}
+table.tm td .got{margin:0}

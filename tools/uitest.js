@@ -51,7 +51,15 @@ let bad = 0; const check = (n, ok, v) => { if (!ok) bad++; console.log((ok ? 'ok
   check('Have box saves', await ev(`S.stock[${JSON.stringify(k)}]===4`), k);
   const pk = await ev(`(()=>{const i=document.querySelector('#view input[data-price]'); i.value='777'; i.dispatchEvent(new Event('change',{bubbles:true})); return i.dataset.price})()`);
   check('Price box saves', await ev(`S.prices[${JSON.stringify(pk)}]===777`), pk);
+  // ✓ "have all of it" boxes
+  const gk = await ev(`(()=>{const b=[...document.querySelectorAll('#view input[data-got]')].find(i=>!i.checked); if(!b) return null; S.stock[b.dataset.got]=2; b.checked=true; b.dispatchEvent(new Event('change',{bubbles:true})); return b.dataset.got+'|'+b.dataset.need})()`);
+  const [gName, gNeed] = (gk || '|').split('|');
+  check('tick sets Have to the amount needed', gk && await ev(`S.stock[${JSON.stringify(gName)}]===${+gNeed}`), gk);
+  await ev(`(()=>{const b=document.querySelector('#view input[data-got="'+CSS.escape(${JSON.stringify(gName)})+'"]'); b.checked=false; b.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+  check('untick puts the old number back', await ev(`S.stock[${JSON.stringify(gName)}]===2`), await ev(`S.stock[${JSON.stringify(gName)}]`));
   await ev(`document.querySelector('#tabs [data-view=steps]').click(); 1`);
+  const sk = await ev(`(()=>{const b=[...document.querySelectorAll('#view .box input[data-got]')].find(i=>!i.checked); if(!b) return null; b.checked=true; b.dispatchEvent(new Event('change',{bubbles:true})); return b.dataset.got+'|'+b.dataset.need})()`);
+  check('tick in a step box', sk && await ev(`S.stock[${JSON.stringify(sk.split('|')[0])}]>=${+sk.split('|')[1]}`), sk);
   // persistence after reload
   await send('Page.reload'); await sleep(2000);
   check('saved after reload, no welcome again', await ev(`PROF.list.length===2 && !document.querySelector('#welcome').open`), await ev('PROF.list.map(p=>p.name)'));

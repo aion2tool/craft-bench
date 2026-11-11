@@ -223,11 +223,15 @@ function stepTip(s) {
   if (!guaranteed(s.rid)) return `Can fail${S.prof[r.pr] ? ` (${Math.round(succ(s.rid) * 100)}% at your proficiency)` : ''}.`;
   return '';
 }
+/** ✓ box: ticked = you have all of it. Ticking sets Have to the amount needed; unticking puts your old number back. */
+function gotBox(k, need, h) {
+  return `<label class="got" title="${h >= need ? 'You have enough. Untick to undo' : 'Tick if you have all ' + fmt(need)}"><input type="checkbox" data-got="${esc(k)}" data-need="${need}"${h >= need ? ' checked' : ''}><span></span></label>`;
+}
 function matLine(m, need, transfer) {
   const h = have(m), short = h < need, sub = !transfer && (recipeFor(m) && !isGear(m)) ? RC[recipeFor(m)] : null;
   return `<div class="ml${short ? ' short' : ''}">${icon(m, 's')}<div class="mn">${transfer ? '<span class="tag">Transfer Material</span>' : ''}${nm(m)}
       ${sub ? `<div class="subr">craft from ${sub.m.map(([x, n]) => `${n} ${esc(norm(nameOf(x)))}`).join(' + ')}</div>` : ''}</div>
-    <div class="mc">${fmt(h)}/${fmt(need)}</div></div>`;
+    <div class="mc">${gotBox(norm(nameOf(m)), need, h)}${fmt(h)}/${fmt(need)}</div></div>`;
 }
 function stepCard(s, i, reached) {
   const r = RC[s.rid], done = i <= reached, isNext = i === reached + 1;
@@ -264,14 +268,14 @@ function renderTotals() {
     <div class="sumline">${short.length ? `<span>You're missing <b>${short.length}</b> material${short.length > 1 ? 's' : ''}</span>` : '<span class="ok">✓ You have every base material</span>'}
       ${priced.length ? `<span class="kin">Buying them: <b>${cost.toLocaleString()}</b> Kinah${priced.length < short.length ? ` <span class="muted small">(${short.length - priced.length} without a price)</span>` : ''}</span>` : short.length ? '<span class="muted small">Type prices below to see the Kinah cost</span>' : ''}
       <span class="grow"></span><button class="ghost sm" id="kisenalT">Fill Kisenal prices</button></div>
-    <table class="tm"><tr><th>Material</th><th>Need</th><th>Have</th><th>Short</th><th>Price each</th><th>Cost</th></tr>
+    <table class="tm"><tr><th>Material</th><th>Need</th><th title="Tick if you have all of it">✓</th><th>Have</th><th>Short</th><th>Price each</th><th>Cost</th></tr>
     ${base.map(([k, r]) => { const p = S.prices[k], miss = up1(r.miss);
       return `<tr class="${miss ? 'sh' : ''}"><td><span class="mn">${icon(r.id, 'xs')}${nm(r.id)}</span><div class="src">${esc((IT[r.id] || {}).src || '')}</div></td><td>${fmt(up1(r.need))}</td>
-        <td><input type="number" min="0" data-stock="${esc(k)}" value="${S.stock[k] || 0}"></td><td class="${miss ? 'miss' : 'ok'}">${miss ? fmt(miss) : '✓'}</td>
+        <td>${gotBox(k, up1(r.need), S.stock[k] || 0)}</td><td><input type="number" min="0" data-stock="${esc(k)}" value="${S.stock[k] || 0}"></td><td class="${miss ? 'miss' : 'ok'}">${miss ? fmt(miss) : '✓'}</td>
         <td><input class="p" type="number" min="0" data-price="${esc(k)}" value="${p ?? ''}" placeholder="—"></td><td class="kc">${miss && p != null ? kina(miss * p) : ''}</td></tr>`; }).join('')}</table>
-    ${made.length ? `<h3>Crafted along the way</h3><table class="tm"><tr><th>Item</th><th>Need</th><th>Have</th><th>To craft</th></tr>
+    ${made.length ? `<h3>Crafted along the way</h3><table class="tm"><tr><th>Item</th><th>Need</th><th>✓</th><th>Have</th><th>To craft</th></tr>
       ${made.map(([k, d]) => { const h = S.stock[k] || 0, todo = up1(Math.max(0, d.need - h));
-        return `<tr><td><span class="mn">${icon(d.id, 'xs')}${nm(d.id)}</span></td><td>${fmt(up1(d.need))}</td><td><input type="number" min="0" data-stock="${esc(k)}" value="${h}"></td><td class="${todo ? 'craft' : 'ok'}">${todo ? todo : '✓'}</td></tr>`; }).join('')}</table>` : ''}
+        return `<tr><td><span class="mn">${icon(d.id, 'xs')}${nm(d.id)}</span></td><td>${fmt(up1(d.need))}</td><td>${gotBox(k, up1(d.need), h)}</td><td><input type="number" min="0" data-stock="${esc(k)}" value="${h}"></td><td class="${todo ? 'craft' : 'ok'}">${todo ? todo : '✓'}</td></tr>`; }).join('')}</table>` : ''}
     <p class="muted small">Counts assume no lucky combos. Your numbers save automatically.</p></div>`;
   $('#kisenalT').onclick = () => { Object.assign(S.prices, KISENAL.prices); S.priceNote = KISENAL.note; upd(); toast('Kisenal prices filled in', 'ok'); };
 }
@@ -297,6 +301,13 @@ $('#showAll').onchange = e => { S.showAll = e.target.checked; upd(); };
 $('#view').onclick = e => { const d = e.target.closest('[data-did]'); if (d) craftedDialog(+d.dataset.did); };
 // every Have / Price box
 document.addEventListener('change', e => {
+  const got = e.target.dataset && e.target.dataset.got;
+  if (got != null) {
+    const need = +e.target.dataset.need || 0, prev = S.prevStock ||= {};
+    if (e.target.checked) { prev[got] = S.stock[got] || 0; S.stock[got] = Math.max(S.stock[got] || 0, need); }
+    else { const old = prev[got] ?? 0; S.stock[got] = old < need ? old : 0; delete prev[got]; }
+    upd(); return;
+  }
   const k = e.target.dataset && e.target.dataset.stock, pk = e.target.dataset && e.target.dataset.price;
   if (k == null && pk == null) return;
   if (k != null) S.stock[k] = Math.max(0, +e.target.value || 0);
@@ -341,7 +352,7 @@ $('#clearPricesB').onclick = () => { if (!confirm('Remove every price in this pr
 
 // ---------------------------------------------------------------- profiles, backup, share
 const APP = 'craft-bench';
-const strip = p => { const { sel, showDone, ...keep } = p; return keep; };   // UI-only fields stay local
+const strip = p => { const { sel, showDone, prevStock, ...keep } = p; return keep; };   // UI-only fields stay local
 function download(name, obj) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 1)], { type: 'application/json' }));
