@@ -116,7 +116,7 @@ function stages(target) {
  * mode safe: no combo luck; avg: expected values; lucky: every combo hits, every craft succeeds.
  */
 function plan(target, qty, mode) {
-  const stock = { ...S.stock }, raw = {}, crafts = new Map();
+  const stock = { ...S.stock }, raw = {}, crafts = new Map(), dem = {};
   const take = (id, q) => { const k = norm(nameOf(id)), h = Math.max(0, stock[k] || 0), t = Math.min(h, q); stock[k] = h - t; return t; };
   const addCraft = (rid, n, how) => { const c = crafts.get(rid) || { rid, n: 0, how }; c.n += n; crafts.set(rid, c); };   // keeps first position: inputs before what uses them
   const addRaw = (id, q, miss) => { const k = norm(nameOf(id)); const r = raw[k] ||= { id, need: 0, miss: 0 }; r.need += q; r.miss += miss; };
@@ -124,6 +124,7 @@ function plan(target, qty, mode) {
   function need(id, q, depth) {
     if (q <= 1e-9 || depth > 40) return;
     const k = norm(nameOf(id));
+    if (depth) { const d = dem[k] ||= { id, need: 0 }; d.need += q; }
     if (S.buy[k] || rawLeaf(id)) { const t = take(id, q); addRaw(id, q, q - t); return; }
     const rem = q - take(id, q);
     if (rem <= 1e-9) return;
@@ -159,54 +160,7 @@ function plan(target, qty, mode) {
   need(target, qty, 0);
   let cost = 0; const noPrice = [];
   for (const [k, r] of Object.entries(raw)) { if (r.miss <= 1e-9) continue; const p = S.prices[k]; if (p == null) noPrice.push(k); else cost += up1(r.miss) * p; }
-  return { raw, crafts: [...crafts.values()], cost, noPrice };
-}
-
-// ---------------------------------------------------------------- simulator (random)
-function simulate(target, qty, runs) {
-  const costs = [], craftsN = []; let combos = 0, fails = 0;
-  for (let i = 0; i < runs; i++) {
-    const stock = { ...S.stock }, miss = {}; let crafts = 0;
-    const takeN = (id, q) => { const k = norm(nameOf(id)), h = Math.max(0, stock[k] || 0), t = Math.min(h, q); stock[k] = h - t; return t; };
-    const give = (id, q) => { const k = norm(nameOf(id)); stock[k] = (stock[k] || 0) + q; };
-    const attempt = rid => {   // pay materials, roll success and combo
-      const r = RC[rid]; crafts++;
-      if (r.t) get(r.t, 1);
-      for (const [m, x] of r.m) get(m, x);
-      if (Math.random() >= succ(rid)) { fails++; return 'fail'; }
-      if (r.c && Math.random() < r.c[1] / 100) { combos++; return 'combo'; }
-      return 'ok';
-    };
-    function get(id, q) {
-      let rem = q - takeN(id, q), guard = 0;
-      const k = norm(nameOf(id));
-      if (rem <= 0) return;
-      if (S.buy[k] || (!upgradeOf[id] && !recipeFor(id) && !comboOf[id])) { miss[k] = (miss[k] || 0) + rem; return; }
-      while (rem > 0 && guard++ < 500) {
-        const up = upgradeOf[id];
-        if (up) {
-          const r = RC[up];
-          if (takeN(r.t, 1)) { for (const [m, x] of r.m) get(m, x); crafts++; rem--; continue; }
-          const res = attempt(comboOf[id]);          // craft the normal piece: combo makes it Splendent
-          if (res === 'combo') { rem--; continue; }
-          if (res === 'ok') give(r.t, 1);
-          continue;
-        }
-        const rid = recipeFor(id);
-        if (rid) { const res = attempt(rid); if (res !== 'fail') { const got = Math.min(rem, RC[rid].n); rem -= got; if (RC[rid].n > got) give(id, RC[rid].n - got); } continue; }
-        const cr = comboOf[id];
-        if (cr) { const res = attempt(cr); if (res === 'combo') rem--; else if (res === 'ok') give(RC[cr].p, 1); continue; }
-        break;
-      }
-    }
-    get(target, qty);
-    let cost = 0; for (const [k, q] of Object.entries(miss)) cost += (S.prices[k] || 0) * q;
-    costs.push(cost); craftsN.push(crafts);
-  }
-  costs.sort((a, b) => a - b); craftsN.sort((a, b) => a - b);
-  const pct = (a, p) => a[Math.min(a.length - 1, Math.floor(p * a.length))];
-  return { costs, avg: costs.reduce((s, x) => s + x, 0) / runs, p10: pct(costs, .1), p50: pct(costs, .5), p90: pct(costs, .9),
-    crafts: craftsN.reduce((s, x) => s + x, 0) / runs, combos: combos / runs, fails: fails / runs };
+  return { raw, crafts: [...crafts.values()], cost, noPrice, dem };
 }
 
 // ---------------------------------------------------------------- browser
@@ -283,8 +237,10 @@ function matRows(rid, mult, depth, transferFirst) {
     const it = IT[m] || {}, how = sub ? (S.buy[norm(it.n)] ? 'Buying instead of crafting' : 'Crafted · click + to see its recipe') : (it.src || 'Gathered / drop / shop');
     const p = price(m);
     return `<div class="mrow" title="${esc(it.src || '')}">${sub && depth < 3 ? `<button class="exp" data-sub="${key}">${open ? '−' : '+'}</button>` : '<span></span>'}${icon(m)}
-      <div style="min-width:0"><div class="nm">${tr ? '<span class="tag">Transfer Material</span>' : ''}${nm(m)}</div><div class="how">${esc(how)}${p ? ` · <span class="gold">${kina(p)} each</span>` : ''}</div></div>
-      <div class="cnt${short ? ' short' : ''}">${fmt(h)}/${fmt(need)}${short && p ? `<small>buy ≈ ${kina((need - h) * p)}</small>` : ''}</div></div>
+      <div style="min-width:0"><div class="nm">${tr ? '<span class="tag">Transfer Material</span>' : ''}${nm(m)}</div><div class="how">${esc(how)}</div></div>
+      <div class="cnt${short ? ' short' : ''}"><label class="haveIn" title="How many you have"><input type="number" min="0" data-stock="${esc(norm(it.n))}" value="${h}"> / ${fmt(need)}</label>
+        ${isGear(m) ? '' : `<label class="priceIn" title="Market price for one"><input type="number" min="0" data-price="${esc(norm(it.n))}" value="${p ?? ''}" placeholder="price"> K</label>`}
+        ${short && p ? `<small>buy ≈ ${kina((need - h) * p)}</small>` : ''}</div></div>
       ${open && sub ? `<div class="sub">${matRows(upgradeOf[m] || recipeFor(m) || comboOf[m], up1(need / RC[upgradeOf[m] || recipeFor(m) || comboOf[m]].n), depth + 1, true)}</div>` : ''}`;
   }).join('');
 }
@@ -301,7 +257,6 @@ function bench(s) {
     <div class="odds">${odds.join('')}</div>
     ${matRows(rid, 1, 0, true)}
     <div class="act"><span class="note">${canCraft ? 'You have everything for one craft.' : 'Red = still missing. The cost panel adds it all up.'}</span>
-      <button data-try="${rid}">🎲 Try it (practice)</button>
       <button class="primary" data-did="${rid}" data-stage="${s.id}">✓ I crafted it in game</button></div></div>`;
 }
 
@@ -319,7 +274,8 @@ function renderSide() {
     : `<div class="alldone">✓ You have every material you need${S.mode !== 'safe' ? ' (in this mode)' : ''}</div>`;
   $('#short').innerHTML = short.map(([k, r]) => { const p = S.prices[k], it = IT[r.id] || {};
     return `<div class="srow" title="${esc(it.src || '')}">${icon(r.id, 's')}<div style="min-width:0"><div class="nm">${nm(r.id)}</div><div class="how">${esc(it.src || '')}</div></div>
-      <div class="r"><b>${fmt(up1(r.miss))}</b> short<small>${p != null ? kina(up1(r.miss) * p) : '<span style="color:#ffb14a">no price</span>'}</small></div></div>`; }).join('')
+      <div class="r"><b>${fmt(up1(r.miss))}</b> short<small>${p != null ? kina(up1(r.miss) * p) : '<span style="color:#ffb14a">no price</span>'}</small>
+        <label class="priceIn"><input type="number" min="0" data-price="${esc(k)}" value="${p ?? ''}" placeholder="price"> K</label></div></div>`; }).join('')
     + (P.noPrice.length ? `<div class="warnline">No price for: ${P.noPrice.map(esc).join(', ')} (not in the total)</div>` : '');
   // crafts to do
   $('#todo').innerHTML = P.crafts.map((c, i) => { const r = RC[c.rid], k = norm(nameOf(r.p)), isMat = !isGear(r.p);
@@ -328,14 +284,17 @@ function renderSide() {
       <div class="k">${esc(r.pr)}${isMat ? ` · <button class="linkb" data-buy="${esc(k)}">buy instead</button>` : ''}</div></div><span class="x">×${fmt(S.mode === 'avg' ? Math.round(c.n * 10) / 10 : up1(c.n))}</span></li>`; }).join('')
     + Object.keys(S.buy).filter(k => S.buy[k]).map(k => `<li><span class="no">$</span><span></span><div>Buying <b>${esc(k)}</b> <div class="k"><button class="linkb" data-craft="${esc(k)}">craft it instead</button></div></div><span></span></li>`).join('')
     || '<li class="muted">Nothing to craft.</li>';
-  // all materials
-  const all = Object.entries(Ps.raw).sort((a, b) => a[0].localeCompare(b[0]));
-  $('#allMats').innerHTML = `<tr><th>Material</th><th>Need</th><th>Have</th><th>Short</th><th>Price</th></tr>` + all.map(([k, r]) => {
-    const cur = P.raw[k] || { need: 0, miss: 0 };
-    return `<tr><td><span class="mn">${icon(r.id, 'xs')}${nm(r.id)}</span></td><td>${fmt(up1(cur.need))}</td>
-      <td><input type="number" min="0" data-stock="${esc(k)}" value="${S.stock[k] || 0}"></td>
-      <td class="${cur.miss > 1e-9 ? 'miss' : 'ok'}">${cur.miss > 1e-9 ? fmt(up1(cur.miss)) : '✓'}</td>
-      <td><input class="p" type="number" min="0" data-price="${esc(k)}" value="${S.prices[k] ?? ''}" placeholder="—"></td></tr>`; }).join('');
+  // my materials: everything this item needs, base materials and the crafted pieces in between
+  const rows = Object.entries(P.dem).filter(([k]) => k !== norm(nameOf(S.target)))
+    .sort((a, b) => isGear(a[1].id) - isGear(b[1].id) || a[0].localeCompare(b[0]));
+  $('#allMats').innerHTML = `<tr><th>Material</th><th>Need</th><th>Have</th><th>Status</th><th>Price</th></tr>` + rows.map(([k, d]) => {
+    const raw = P.raw[k], h = S.stock[k] || 0, crafted = !raw;
+    const st = raw ? (raw.miss > 1e-9 ? `<td class="miss">${fmt(up1(raw.miss))} short</td>` : '<td class="ok">✓</td>')
+      : (d.need - h > 1e-9 ? `<td class="craft">craft ${fmt(up1(d.need - h))}</td>` : '<td class="ok">✓</td>');
+    return `<tr><td><span class="mn">${icon(d.id, 'xs')}${nm(d.id)}</span></td><td>${fmt(up1(d.need))}</td>
+      <td><input type="number" min="0" data-stock="${esc(k)}" value="${h}"></td>${st}
+      <td>${isGear(d.id) ? '' : `<input class="p" type="number" min="0" data-price="${esc(k)}" value="${S.prices[k] ?? ''}" placeholder="—">`}</td></tr>`; }).join('')
+    || '<tr><td class="muted">Nothing needed.</td></tr>';
 }
 
 // ---------------------------------------------------------------- render + events
@@ -356,7 +315,6 @@ $('#items').onclick = e => { const d = e.target.closest('[data-id]'); if (!d) re
 $('#modeSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; S.mode = b.dataset.m; upd(); };
 $('#path').onclick = e => {
   const sub = e.target.closest('[data-sub]'); if (sub) { const k = sub.dataset.sub; openSub.has(k) ? openSub.delete(k) : openSub.add(k); renderPath(); return; }
-  const tr = e.target.closest('[data-try]'); if (tr) { practice(+tr.dataset.try); return; }
   const did = e.target.closest('[data-did]'); if (did) { craftedDialog(+did.dataset.did); return; }
   if (e.target.closest('[data-fold]')) { S.showDone = !S.showDone; save(); renderPath(); return; }
   if (e.target.closest('.bench')) return;
@@ -367,21 +325,26 @@ $('#todo').onclick = e => {
   const b = e.target.closest('[data-buy]'); if (b) { S.buy[b.dataset.buy] = true; upd(); return; }
   const c = e.target.closest('[data-craft]'); if (c) { delete S.buy[c.dataset.craft]; upd(); }
 };
-$('#allMats').onchange = e => {
-  const k = e.target.dataset.stock, pk = e.target.dataset.price;
+// every Have / Price box on the page (bench rows, cost list, materials table, prices window)
+document.addEventListener('change', e => {
+  const k = e.target.dataset && e.target.dataset.stock, pk = e.target.dataset && e.target.dataset.price;
+  if (k == null && pk == null) return;
   if (k != null) S.stock[k] = Math.max(0, +e.target.value || 0);
   if (pk != null) { if (e.target.value === '') delete S.prices[pk]; else S.prices[pk] = Math.max(0, +e.target.value || 0); }
-  upd();
-};
+  upd(); if ($('#pricesDlg').open) renderPrices();
+});
 
-// practice craft: rolls like the game, never touches your inventory
-const tally = {};
-function practice(rid) {
-  const r = RC[rid], t = tally[rid] ||= { n: 0, ok: 0, combo: 0, fail: 0 }; t.n++;
-  if (Math.random() >= succ(rid)) { t.fail++; toast(`✖ Craft failed <span class="muted small">(${t.fail} fails / ${t.n} tries)</span>`, 'fail'); return; }
-  if (r.c && Math.random() < r.c[1] / 100) { t.combo++; toast(`${icon(r.c[0], 's')} COMBO! ${esc(nameOf(r.c[0]))} <span class="muted small">(${t.combo} combos / ${t.n})</span>`, 'combo'); return; }
-  t.ok++; toast(`${icon(r.p, 's')} Success: ${esc(nameOf(r.p))} <span class="muted small">(${t.n} tries, ${t.combo} combos)</span>`, 'ok');
+// prices window: every material the current item needs, in one list
+function renderPrices() {
+  const P = plan(S.target, S.make, 'safe');
+  const keys = Object.entries(P.dem).filter(([, d]) => !isGear(d.id)).sort((a, b) => !!P.raw[b[0]] - !!P.raw[a[0]] || a[0].localeCompare(b[0]));
+  $('#priceNote2').value = S.priceNote || '';
+  $('#priceList').innerHTML = keys.map(([k, d]) => `<label class="prow">${icon(d.id, 'xs')}<span class="pn">${nm(d.id)}${P.raw[k] ? '' : ' <span class="muted small">(craftable)</span>'}</span>
+    <input type="number" min="0" data-price="${esc(k)}" value="${S.prices[k] ?? ''}" placeholder="Kinah each"></label>`).join('');
 }
+$('#pricesB').onclick = () => { renderPrices(); $('#pricesDlg').showModal(); };
+$('#priceNote2').onchange = e => { S.priceNote = e.target.value; save(); };
+$('#kisenalB2').onclick = () => { Object.assign(S.prices, KISENAL.prices); S.priceNote = KISENAL.note; upd(); renderPrices(); toast('Kisenal prices loaded', 'ok'); };
 
 // record a real craft: use up the materials, add what you got
 function craftedDialog(rid) {
@@ -404,22 +367,6 @@ function craftedDialog(rid) {
   };
   dlg.showModal();
 }
-
-// simulator
-$('#simB').onclick = () => {
-  const out = $('#simOut'); out.innerHTML = '<p class="muted small">Running…</p>';
-  setTimeout(() => {
-    const R = simulate(S.target, S.make, 2000);
-    const max = R.costs[R.costs.length - 1] || 1, min = R.costs[0], bins = new Array(24).fill(0);
-    for (const c of R.costs) bins[Math.min(23, Math.floor((c - min) / ((max - min) || 1) * 24))]++;
-    const top = Math.max(...bins);
-    out.innerHTML = `<div class="grid"><div class="box"><span>Average cost</span><b class="gold">${kina(R.avg)}</b></div><div class="box"><span>Typical (median)</span><b>${kina(R.p50)}</b></div>
-      <div class="box"><span>Lucky 10% pay under</span><b>${kina(R.p10)}</b></div><div class="box"><span>Unlucky 10% pay over</span><b>${kina(R.p90)}</b></div>
-      <div class="box"><span>Crafts per run</span><b>${fmt(Math.round(R.crafts * 10) / 10)}</b></div><div class="box"><span>Combos per run</span><b>${fmt(Math.round(R.combos * 100) / 100)}</b></div></div>
-      <div class="hist">${bins.map(b => `<i style="height:${b / top * 100}%"></i>`).join('')}</div><div class="histl"><span>${kina(min)}</span><span>cost per run</span><span>${kina(max)}</span></div>
-      ${R.fails ? `<p class="muted small">Includes ${fmt(Math.round(R.fails * 100) / 100)} failed crafts per run at your proficiency.</p>` : ''}`;
-  }, 20);
-};
 
 // dialogs
 $('#helpB').onclick = () => $('#help').showModal();

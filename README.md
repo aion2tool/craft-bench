@@ -1,13 +1,13 @@
-# Craft Bench: AION 2 crafting planner & simulator
+# Craft Bench: AION 2 crafting planner & material tracker
 
 **Open it:** https://adjalil.github.io/aion2-craft-bench/
 
 Plan any craftable weapon, armor piece or accessory in AION 2 (global client), for Elyos and Asmodian:
 
 - **Your path:** every stage from the first craft to the item you want (regular craft, Splendent upgrade, combo-only), with a one-line explanation of each. Stages you already have fold away.
-- **Bench:** each stage's recipe like the in-game Crafting Materials window: transfer material, have/need, where to get each material (drops, dungeons, shops), sub-recipes.
+- **Bench:** each stage's recipe like the in-game Crafting Materials window: transfer material, have/need (editable), where to get each material (drops, dungeons, shops), sub-recipes.
 - **What it costs:** Safe (no combo luck) / Average / Lucky, the Kinah to buy what you're missing at your market prices, and the crafts to do in order.
-- **Simulator:** rolls every craft's success and 25% combo thousands of times and shows the cost range.
+- **Track your materials:** type what you have and market prices right on the recipe rows, in "My materials" or in the 💰 Prices window.
 - **Track real crafts:** "✓ I crafted it in game" uses up the materials and adds the result.
 
 ## Your data

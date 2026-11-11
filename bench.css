@@ -189,3 +189,17 @@ dialog form{margin-top:16px;text-align:right}
 .startform input:not([type=checkbox]),.startform select{width:60%;background:#0c1017;border:1px solid var(--line2);border-radius:6px;padding:5px 8px;color:var(--txt)}
 .startform .chk{justify-content:flex-start}
 @media(max-width:1100px){.top{flex-wrap:wrap}.brand .sub{display:none}}
+
+/* inline have / price boxes */
+.mrow{grid-template-columns:24px 44px minmax(0,1fr) auto}
+.mrow .cnt{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.haveIn,.priceIn{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;white-space:nowrap}
+.haveIn input{width:62px;text-align:right;padding:3px 6px;font-weight:700}
+.cnt.short .haveIn input{border-color:#ff5a5a88;color:#ffb3b3}
+.priceIn{font-size:11px;font-weight:600;color:var(--gold)}
+.priceIn input{width:92px;text-align:right;padding:2px 6px;font-size:12px}
+.srow .r .priceIn{margin-top:3px}
+td.craft{color:#ff8fd0;font-weight:600}
+.priceList{max-height:55vh;overflow:auto;border:1px solid var(--line);border-radius:9px}
+.prow{display:grid;grid-template-columns:24px 1fr 130px;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid #ffffff08}
+.prow .pn{font-weight:600;font-size:13px}.prow input{text-align:right}

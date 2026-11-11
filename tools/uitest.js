@@ -39,9 +39,20 @@ let bad = 0; const check = (n, ok, v) => { if (!ok) bad++; console.log((ok ? 'ok
   check('import our format', await ev(`profilesIn({app:'craft-bench',v:1,profiles:[{name:'X',stock:{a:1}}]}).length===1`), 0);
   check('import old single backup', await ev(`profilesIn({stock:{a:1},prices:{}}).length===1`), 0);
   check('reject junk', await ev(`(()=>{try{profilesIn({foo:1});return false}catch(e){return true}})()`), 0);
+  // inline tracking + price entry
+  await ev(`PROF.cur=0; S=PROF.list[0]; S.sel=null; upd(); 1`);
+  const benchInput = await ev(`(()=>{const i=document.querySelector('.bench input[data-stock]'); if(!i) return null; i.value='3'; i.dispatchEvent(new Event('change',{bubbles:true})); return i.dataset.stock})()`);
+  check('bench Have box updates inventory', benchInput && await ev(`S.stock[${JSON.stringify(benchInput || '')}]===3`), benchInput);
+  const priceKey = await ev(`(()=>{const i=document.querySelector('.bench input[data-price]'); if(!i) return null; i.value='12345'; i.dispatchEvent(new Event('change',{bubbles:true})); return i.dataset.price})()`);
+  check('bench Price box saves price', priceKey && await ev(`S.prices[${JSON.stringify(priceKey || '')}]===12345`), priceKey);
+  await ev(`document.querySelector('#pricesB').click(); 1`);
+  check('prices window lists materials', await ev(`document.querySelector('#pricesDlg').open && document.querySelectorAll('#priceList input').length>3`), await ev(`document.querySelectorAll('#priceList input').length`));
+  await ev(`document.querySelector('#pricesDlg').close(); 1`);
+  check('materials table shows crafted pieces', await ev(`document.querySelector('#allMats').textContent.includes('Balaur Horn')`), 0);
+  check('no simulator left', await ev(`!document.querySelector('#simB') && !document.querySelector('[data-try]')`), 0);
   // persistence after reload
   await send('Page.reload'); await sleep(2000);
-  check('saved after reload, no welcome again', await ev(`PROF.list.length===2 && S.name==='Tester' && !document.querySelector('#welcome').open`), await ev('PROF.list.map(p=>p.name)'));
+  check('saved after reload, no welcome again', await ev(`PROF.list.length===2 && !document.querySelector('#welcome').open`), await ev('PROF.list.map(p=>p.name)'));
   // shared link opens as a new profile (confirm auto-accepted)
   await ev(`window.confirm=()=>true; 1`);
   await send('Page.navigate', { url: url + '#p=' + packed }); await sleep(500);

@@ -8,12 +8,13 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand">⚒ <b>Craft Bench</b><span class="sub">AION 2 crafting planner &amp; simulator</span></div>
+  <div class="brand">⚒ <b>Craft Bench</b><span class="sub">AION 2 crafting planner &amp; material tracker</span></div>
   <div class="seg" id="facSeg"><button data-f="Elyos">Elyos</button><button data-f="Asmodian">Asmodian</button></div>
   <span class="grow"></span>
   <button class="who" id="whoB" title="Switch, add or manage profiles">👤 <span id="who"></span> ▾</button>
   <button class="ghost" id="impB" title="Load a backup file">⤒ Import</button>
   <button class="ghost" id="expB" title="Save this profile to a file">⤓ Export</button>
+  <button class="ghost" id="pricesB" title="Enter market prices">💰 Prices</button>
   <button class="ghost" id="shareB" title="Copy a link that loads this profile">🔗 Share</button>
   <button class="ghost" id="helpB">❔ How it works</button>
   <button class="ghost" id="setB">⚙ Settings</button>
@@ -54,15 +55,7 @@
       <ol class="todo" id="todo"></ol>
     </section>
     <section class="card">
-      <div class="card-h"><h2>Simulator</h2><span class="muted">random runs of the whole path</span></div>
-      <div class="pad" id="sim">
-        <p class="muted small">Rolls every craft's success and 25% combo like the game does, many times, and buys whatever runs out at your prices.</p>
-        <button class="primary" id="simB">Run 2,000 simulations</button>
-        <div id="simOut"></div>
-      </div>
-    </section>
-    <section class="card">
-      <div class="card-h"><h2>All materials</h2><span class="muted">edit Have &amp; Price</span></div>
+      <div class="card-h"><h2>My materials</h2><span class="muted">type what you have &amp; prices</span></div>
       <div class="pad tight"><table class="mats" id="allMats"></table></div>
     </section>
   </aside>
@@ -134,6 +127,16 @@
   <p class="muted small" id="craftedTip"></p>
   <div class="row gap wrap" id="craftedBtns"></div>
   <form method="dialog"><button class="ghost">Cancel</button></form>
+</dialog>
+
+<!-- prices -->
+<dialog id="pricesDlg">
+  <h2>💰 Market prices</h2>
+  <p class="muted small">Price for one of each, in Kinah, from your server's market. Used for the "What it costs" total. Leave empty if you don't buy it.</p>
+  <label class="row" style="margin-bottom:10px">Server / note <input id="priceNote2" placeholder="e.g. Kisenal (NA East), Nov 9"></label>
+  <div class="priceList" id="priceList"></div>
+  <div class="row gap wrap" style="margin-top:12px"><button id="kisenalB2">Fill in Kisenal prices (Nov 9)</button></div>
+  <form method="dialog"><button class="primary">Done</button></form>
 </dialog>
 
 <div id="toast"></div>

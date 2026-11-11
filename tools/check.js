@@ -12,7 +12,7 @@ const ctx = {
 };
 ctx.window = ctx; vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(dir + '/data.js', 'utf8'), ctx);
-vm.runInContext(fs.readFileSync(dir + '/bench.js', 'utf8') + '\n;globalThis.__t={plan,stages,simulate,get S(){return S},IT,RC,nameOf,upgradeOf,comboOf};', ctx);
+vm.runInContext(fs.readFileSync(dir + '/bench.js', 'utf8') + '\n;globalThis.__t={plan,stages,get S(){return S},IT,RC,nameOf,upgradeOf,comboOf};', ctx);
 const T = ctx.__t, find = n => +Object.keys(T.IT).find(k => T.IT[k].n === n && (T.IT[k].f === 'Elyos' || T.IT[k].f === 'both'));
 let bad = 0; const eq = (what, a, b) => { const ok = Math.abs(a - b) < 1e-6; if (!ok) bad++; console.log((ok ? 'ok  ' : 'FAIL') + ' ' + what + ': ' + a + (ok ? '' : ' expected ' + b)); };
 
@@ -42,8 +42,6 @@ eq('avg Ego 20 + 0.75*7', (A.raw['Wrathful Ego'] || {}).need, 25.25);
 T.S.stock = {};
 const F = T.plan(target, 1, 'lucky');
 eq('lucky from scratch: True needs 4 refining + White 5 + Wise 6', (F.raw["Artisan's Ultimate Refining Stone"] || {}).need, 15);
-const sim = T.simulate(target, 1, 300);
-console.log('sim avg crafts', sim.crafts.toFixed(1), 'combos', sim.combos.toFixed(2));
 // a necklace and a bracelet also build a path
 for (const n of ['Splendent Wise Dragon Lord Necklace', 'Pilgrim Bracelet', 'Splendent Wise Dragon Lord Boots', 'Splendent Wise Dragon Lord Orb'])
   console.log(n, '->', T.stages(find(n)).length, 'stages,', Object.keys(T.plan(find(n), 1, 'safe').raw).length, 'materials');
