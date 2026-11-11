@@ -1,6 +1,6 @@
 # Craft Bench: AION 2 crafting planner & material tracker
 
-**Open it:** https://adjalil.github.io/aion2-craft-bench/
+**Open it:** https://aion2tool.github.io/craft-bench/
 
 Plan any craftable weapon, armor piece or accessory in AION 2 (global client), for Elyos and Asmodian:
 
