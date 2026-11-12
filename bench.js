@@ -206,20 +206,16 @@ function renderTop() {
   $('#topCard').innerHTML = `${icon(id, 'l')}<div class="tt"><div class="meta">${CAT_LABEL[it.c] || it.c} · Item Level ${it.il || '?'}</div>
     <h1>${nm(id)}</h1><div class="status">${status}</div></div>`;
   document.querySelectorAll('#tabs [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === (S.view || 'steps')));
-  $('#showAllW').style.display = (S.view || 'steps') === 'steps' && reached >= 0 ? '' : 'none';
-  $('#showAll').checked = !!S.showAll;
 }
 
 function stepTitle(s) {
   if (s.kind === 'up') return 'Splendent Upgrade';
-  if (s.kind === 'combo') return 'Craft until Combo';
+  if (s.kind === 'combo') return 'Craft';
   return 'Craft';
 }
 function stepTip(s) {
   const r = RC[s.rid];
-  if (s.kind === 'up') return `Skip this box if your ${esc(nameOf(s.base))} came out Splendent.`;
-  if (s.kind === 'combo') return `Craft ${esc(nameOf(s.base))} until the 25% combo makes it Splendent (about 4 tries).`;
-  if (r.c && upgradeOf[r.c[0]]) return `25% chance it comes out Splendent: then skip the next box.`;
+  if (s.kind === 'combo') return `Made by crafting ${esc(nameOf(s.base))} (it has to come out Splendent).`;
   if (!guaranteed(s.rid)) return `Can fail${S.prof[r.pr] ? ` (${Math.round(succ(s.rid) * 100)}% at your proficiency)` : ''}.`;
   return '';
 }
@@ -241,21 +237,19 @@ function stepCard(s, i, reached) {
   const tip = stepTip(s);
   return `<div class="box${done ? ' done' : ''}${isNext ? ' next' : ''}">
     <div class="bx-h"><span class="no">${done ? '✓' : i + 1}</span><span class="kind">${stepTitle(s)}</span>${sure}</div>
-    <div class="bx-item">${icon(result, 'm')}<div><div class="bx-name">${nm(result)}</div>${makes !== result ? `<div class="muted small">by crafting ${esc(nameOf(makes))}</div>` : ''}</div></div>
+    <div class="bx-item">${icon(result, 'm')}<div><div class="bx-name">${nm(result)}</div></div></div>
     <div class="bx-sub">Crafting Materials</div>
     <div class="bx-mats">${r.t ? matLine(r.t, 1, true) : ''}${r.m.map(([m, x]) => matLine(m, x, false)).join('')}</div>
     ${tip ? `<div class="bx-tip">${tip}</div>` : ''}
-    <div class="bx-f">${done ? '<span class="ok">✓ You have it</span>'
-      : isNext ? `<span class="${canCraft ? 'ok' : 'warn'}">${canCraft ? 'Ready to craft' : 'Missing materials'}</span><button class="primary sm" data-did="${s.rid}">✓ I crafted it</button>`
-      : '<span class="muted">Later</span>'}</div>
+    <div class="bx-f"><span class="${done ? 'ok' : isNext ? (canCraft ? 'ok' : 'warn') : 'muted'}">${done ? 'Done' : isNext ? (canCraft ? 'Ready to craft' : 'Missing materials') : 'Later'}</span>
+      <label class="haveit"><input type="checkbox" data-have="${esc(norm(nameOf(result)))}"${done ? ' checked' : ''}><span></span>I have it</label></div>
   </div>`;
 }
 function renderSteps() {
   const st = stages(S.target), reached = progress(st);
   if (!st.length) { $('#view').innerHTML = '<p class="muted">This item has no crafting recipe.</p>'; return; }
-  if (reached >= st.length - 1) { $('#view').innerHTML = `<div class="box done big"><div class="bx-item">${icon(S.target, 'm')}<div><div class="bx-name">${nm(S.target)}</div><div class="ok">✓ You have it. Nothing left to craft.</div></div></div></div>`; return; }
-  const from = S.showAll ? 0 : reached + 1;
-  $('#view').innerHTML = `<div class="flow">${st.slice(from).map((s, k) => (k ? '<div class="arrow">➜</div>' : '') + stepCard(s, from + k, reached)).join('')}</div>`;
+  $('#view').innerHTML = (reached >= st.length - 1 ? `<p class="alldone">✓ You have ${nm(S.target)}. Nothing left to craft.</p>` : '')
+    + `<div class="flow">${st.map((s, k) => (k ? '<div class="arrow">➜</div>' : '') + stepCard(s, k, reached)).join('')}</div>`;
 }
 
 function renderTotals() {
@@ -297,10 +291,14 @@ $('#search').oninput = () => renderBrowser();
 $('#cats').onclick = e => { const b = e.target.closest('[data-cat]'); if (!b) return; $('#search').value = ''; S.cat = b.dataset.cat; S.target = topOfCat(S.cat); upd(); };
 $('#items').onclick = e => { const d = e.target.closest('[data-id]'); if (!d) return; S.target = +d.dataset.id; S.cat = IT[S.target].c; upd(); };
 $('#tabs').onclick = e => { const b = e.target.closest('[data-view]'); if (!b) return; S.view = b.dataset.view; upd(); };
-$('#showAll').onchange = e => { S.showAll = e.target.checked; upd(); };
-$('#view').onclick = e => { const d = e.target.closest('[data-did]'); if (d) craftedDialog(+d.dataset.did); };
 // every Have / Price box
 document.addEventListener('change', e => {
+  const hv = e.target.dataset && e.target.dataset.have;
+  if (hv != null) {   // ticked: you have this piece. Unticked: you have neither it nor anything after it in the line
+    if (e.target.checked) S.stock[hv] = Math.max(1, S.stock[hv] || 0);
+    else { const st = stages(S.target), i = st.findIndex(x => norm(nameOf(x.id)) === hv); st.slice(Math.max(0, i)).forEach(x => { S.stock[norm(nameOf(x.id))] = 0; }); }
+    upd(); return;
+  }
   const got = e.target.dataset && e.target.dataset.got;
   if (got != null) {
     const need = +e.target.dataset.need || 0, prev = S.prevStock ||= {};
@@ -314,28 +312,6 @@ document.addEventListener('change', e => {
   if (pk != null) { if (e.target.value === '') delete S.prices[pk]; else S.prices[pk] = Math.max(0, +e.target.value || 0); }
   upd();
 });
-
-// record a real craft: use up the materials, add what you got
-function craftedDialog(rid) {
-  const r = RC[rid], dlg = $('#crafted');
-  $('#craftedTitle').textContent = `You crafted ${nameOf(r.p)} in game?`;
-  $('#craftedTip').textContent = 'Pick what happened. The materials are taken from your Have counts and the result is added.';
-  const opts = [['ok', `Got ${nameOf(r.p)}`]];
-  if (r.c) opts.push(['combo', `Combo! Got ${nameOf(r.c[0])}`]);
-  if (r.s) opts.push(['fail', 'It failed']);
-  $('#craftedBtns').innerHTML = opts.map(([k, l]) => `<button class="${k === 'combo' ? 'primary' : ''}" data-res="${k}">${esc(l)}</button>`).join('');
-  $('#craftedBtns').onclick = e => {
-    const b = e.target.closest('[data-res]'); if (!b) return;
-    const use = (id, q) => { const k = norm(nameOf(id)); S.stock[k] = Math.max(0, (S.stock[k] || 0) - q); };
-    if (r.t) use(r.t, 1);
-    for (const [m, x] of r.m) use(m, x);
-    const res = b.dataset.res, got = res === 'combo' ? r.c[0] : res === 'ok' ? r.p : null;
-    if (got) { const k = norm(nameOf(got)); S.stock[k] = (S.stock[k] || 0) + (res === 'combo' ? (r.c[2] || 1) : r.n); }
-    dlg.close(); upd();
-    toast(got ? `${icon(got, 's')} Added ${esc(nameOf(got))} to your inventory` : 'Materials used up', got ? (res === 'combo' ? 'combo' : 'ok') : 'fail');
-  };
-  dlg.showModal();
-}
 
 // dialogs
 $('#helpB').onclick = () => $('#help').showModal();

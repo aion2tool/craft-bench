@@ -266,3 +266,14 @@ td.kc{color:var(--gold);font-weight:600}
 .got input:focus-visible + span{outline:2px solid var(--gold);outline-offset:2px}
 .ml .mc{display:flex;align-items:center}
 table.tm td .got{margin:0}
+
+/* "I have it" on every craft box */
+.haveit{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-weight:700;color:var(--txt);padding:4px 10px 4px 6px;border-radius:7px;border:1px solid #2e394a;background:#141a24}
+.haveit:hover{border-color:var(--gold)}
+.haveit input{position:absolute;opacity:0;pointer-events:none}
+.haveit span{width:18px;height:18px;border-radius:5px;border:2px solid #4b5d74;background:#0c1017;display:grid;place-items:center}
+.haveit input:checked + span{background:var(--green);border-color:var(--green)}
+.haveit input:checked + span::after{content:"✓";color:#06210f;font-size:12px;font-weight:900;line-height:1}
+.box.done .haveit{border-color:#5fe3a155}
+.box.done{opacity:.7}
+.alldone{margin:0 0 12px}

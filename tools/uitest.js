@@ -41,10 +41,14 @@ let bad = 0; const check = (n, ok, v) => { if (!ok) bad++; console.log((ok ? 'ok
   check('reject junk', await ev(`(()=>{try{profilesIn({foo:1});return false}catch(e){return true}})()`), 0);
   // step boxes + total materials
   await ev(`PROF.cur=0; S=PROF.list[0]; S.fac='Elyos'; S.target=null; S.view='steps'; S.showAll=false; S.stock={'Splendent White Dragon Lord Longsword':1}; upd(); 1`);
-  check('boxes start at the next step (2 left)', await ev(`document.querySelectorAll('#view .box').length===2 && document.querySelectorAll('#view .arrow').length===1`), await ev(`document.querySelectorAll('#view .box').length`));
+  check('every craft box is shown (9)', await ev(`document.querySelectorAll('#view .box').length===9 && document.querySelectorAll('#view .box.done').length===7`), await ev(`document.querySelectorAll('#view .box').length`));
   check('next box is Wise, marked 100%', await ev(`(()=>{const b=document.querySelector('#view .box.next');return !!b && b.textContent.includes('Wise Dragon Lord Longsword') && b.textContent.includes('100%')})()`), 0);
-  await ev(`document.querySelector('#showAll').checked=true; document.querySelector('#showAll').dispatchEvent(new Event('change')); 1`);
-  check('show finished steps shows all 9', await ev(`document.querySelectorAll('#view .box').length===9`), await ev(`document.querySelectorAll('#view .box').length`));
+  check('no combo/proc choices left', await ev(`!document.querySelector('[data-did]') && !document.querySelector('#crafted') && !document.querySelector('#view').textContent.includes('skip the next box')`), 0);
+  await ev(`(()=>{const i=document.querySelector('#view .box.next input[data-have]'); i.checked=true; i.dispatchEvent(new Event('change',{bubbles:true}))})(); 1`);
+  check('"I have it" marks Wise owned, Splendent Wise box stays', await ev(`S.stock['Wise Dragon Lord Longsword']===1 && document.querySelectorAll('#view .box').length===9 && document.querySelector('#view .box.next').textContent.includes('Splendent Wise Dragon Lord Longsword')`), await ev(`document.querySelector('#view .box.next')?.textContent.slice(0,80)`));
+  await ev(`(()=>{const i=[...document.querySelectorAll('#view input[data-have]')].find(x=>x.dataset.have==='Wise Dragon Lord Longsword'); i.checked=false; i.dispatchEvent(new Event('change',{bubbles:true}))})(); 1`);
+  check('untick removes it again', await ev(`!S.stock['Wise Dragon Lord Longsword']`), 0);
+  check('done boxes show ticked', await ev(`[...document.querySelectorAll('#view .box.done input[data-have]')].every(i=>i.checked)`), 0);
   await ev(`document.querySelector('#tabs [data-view=total]').click(); 1`);
   check('total tab lists materials', await ev(`document.querySelectorAll('#view table.tm tr').length>5 && document.querySelector('#view').textContent.includes('Crafted along the way')`), 0);
   const k = await ev(`(()=>{const i=document.querySelector('#view input[data-stock]'); i.value='4'; i.dispatchEvent(new Event('change',{bubbles:true})); return i.dataset.stock})()`);

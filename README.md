@@ -4,9 +4,9 @@
 
 Plan any craftable weapon, armor piece or accessory in AION 2 (global client), for Elyos and Asmodian:
 
-- **Steps:** one box per craft, left to right with arrows, like the in-game Crafting Materials window: the item, its transfer material and materials with have/need. It starts at your next craft; tick "Show finished steps" to see the whole line. Guaranteed crafts are marked 100%.
+- **Steps:** one box per craft, left to right with arrows, like the in-game Crafting Materials window: the item, its transfer material and materials with have/need. Every craft in the line is shown; tick **I have it** on the pieces you own. Guaranteed crafts are marked 100%.
 - **Total materials:** everything the item still needs in one list: type what you have and market prices, and see what's short and the Kinah to buy it.
-- **✓ I crafted it:** uses up the materials and moves you to the next box.
+- **✓ boxes:** tick a material when you have all of it, and tick **I have it** on each piece you own.
 
 ## Your data
 
